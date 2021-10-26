@@ -125,6 +125,29 @@ void setup_microenvironment( void )
 	}
 			
 	initialize_microenvironment(); 	
+	for( int n = 0; n < microenvironment.mesh.voxels.size() ; n++ )
+	{
+		
+		microenvironment(n)[1] = 0.0;
+		microenvironment(n)[2] = 0.0;
+		std::vector<double> position = microenvironment.mesh.voxels[n].center; 
+		 if(   position[1] >- 220  )
+		{	
+		microenvironment.add_dirichlet_node( n,bc_vector_air  );
+							
+		}
+	else
+		{
+			
+		// microenvironment.add_dirichlet_node( n,bc_vector_wound );	
+		// microenvironment(n)[2] = 1.0; 
+			
+		}
+		//microenvironment(n)[nECM] = 1.0;  
+	}
+		microenvironment.set_substrate_dirichlet_activation(1,false);
+		microenvironment.set_substrate_dirichlet_activation(2,false);
+			
 
 	return; 
 }
@@ -161,18 +184,120 @@ std::vector<std::vector<double>> create_cell_sphere_positions(double cell_radius
 
 void setup_tissue( void )
 {
-	double cell_radius = cell_defaults.phenotype.geometry.radius;
-	double tumor_radius = parameters.doubles( "tumor_radius" ); // 250.0; 
-	std::vector<std::vector<double>> positions = create_cell_sphere_positions(cell_radius, tumor_radius);
-	std::cout << "creating " << positions.size() << " closely-packed tumor cells ... " << std::endl;
+	Cell* pC;
+	static Cell_Definition* pWound_Def = find_cell_definition("wound_cell");	
+	static Cell_Definition* pPA_Def = find_cell_definition("PA");	
+	static Cell_Definition* pSA_Def = find_cell_definition("SA");	
+	// Wound Cell Seeding
 
-	Cell* pCell = NULL;
-	for( int i=0; i < positions.size(); i++ )
+	for (int i=-240; i<250; i+=10)
 	{
-		pCell = create_cell(get_cell_definition("metabolic cell")); // tumor cell
-		pCell->assign_position( positions[i] );
-		dFBAIntracellular *model = (dFBAIntracellular*) pCell->phenotype.intracellular;
+		pC = create_cell( *pWound_Def ); 
+		pC->assign_position( i  , -230, 0.0 );
+		pC->is_movable=false;
 	}
+	
+	std::string seeding_method  = parameters.strings("seeding_method");
+	
+	
+    if (seeding_method == "vertical")
+    {
+         //vertical rows
+	for (int i=-220; i<-100; i+=10)
+	{
+		
+		pC = create_cell( *pPA_Def ); 
+		pC->assign_position( 10  , i, 0.0 );
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( 20  , i, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( 30  , i, 0.0 );
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( 40  , i, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( 0 , i, 0.0 );
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( -10  , i, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( -20  , i, 0.0 );
+		}
+	}
+
+    else if (seeding_method == "horizontal")
+    {
+		// horizontal
+		for (int i=-100; i<100; i+=10)
+		{
+			
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( i  , -210, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( i  , -200, 0.0 );
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( i  , -190, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( i  , -180, 0.0 );
+		}
+	}
+	
+	
+	else if (seeding_method == "random")
+    {
+	     //random
+		for (int i=-100; i<100; i+=10)
+	{
+		for(int j=-210;j<-170;j+=10)
+		{
+			
+			if(rand()-rand()<1)
+			{pC = create_cell(*pSA_Def);}
+			else
+			{pC = create_cell(*pPA_Def);}
+			
+			pC->assign_position( i  , j, 0.0 );
+		}
+	
+	
+	}
+	}
+	
+	
+	else
+    {
+     //box		
+		for (int i=-50; i<50; i+=10)
+		{
+			
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( i  , -220, 0.0 );
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( i  , -210, 0.0 );
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( i  , -200, 0.0 );
+		pC = create_cell(*pSA_Def); 
+		pC->assign_position( i  , -190, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( i  , -180, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( i  , -170, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( i  , -160, 0.0 );
+		}
+		
+		for (int i=-220; i<-150; i+=10)
+		{	
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( -60  , i, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( -70 , i, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( 50  , i, 0.0 );
+		pC = create_cell(*pPA_Def); 
+		pC->assign_position( 60  , i, 0.0 );
+		}
+	
+	}
+
 	
 	return; 
 }
