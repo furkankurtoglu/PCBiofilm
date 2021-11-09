@@ -101,3 +101,8 @@ void update_cell(PhysiCell::Cell* pCell, PhysiCell::Phenotype& phenotype, double
 void metabolic_cell_phenotype( Cell* pCell, Phenotype& phenotype, double dt );
 
 std::vector<std::string> my_coloring_function( Cell* );
+
+void update_Dirichlet_Nodes(void);
+
+
+void make_adjustments(void);

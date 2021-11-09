@@ -65,6 +65,7 @@
 ###############################################################################
 */
 
+
 #include "cancer_metabolism.h"
 
 #include "../modules/PhysiCell_settings.h"
@@ -74,12 +75,12 @@ void create_cell_types( void )
 	// set the random seed 
 	SeedRandom( parameters.ints("random_seed") );  
 	
-	/* 
-	   Put any modifications to default cell definition here if you 
-	   want to have "inherited" by other cell types. 
+	
+	  //Put any modifications to default cell definition here if you 
+	   //want to have "inherited" by other cell types. 
 	   
-	   This is a good place to set default functions. 
-	*/ 
+	  // This is a good place to set default functions. 
+	 
 	
 	initialize_default_cell_definition(); 
 
@@ -92,22 +93,22 @@ void create_cell_types( void )
 	cell_defaults.functions.update_migration_bias = NULL; 
 	cell_defaults.functions.custom_cell_rule = NULL; 
 	
- 	/*
-	   This parses the cell definitions in the XML config file. 
-	*/
+ 	
+	  // This parses the cell definitions in the XML config file. 
+	
 	
 	initialize_cell_definitions_from_pugixml(); 
 	
 	
-	/* 
-	   Put any modifications to individual cell definitions here. 
-	   
-	   This is a good place to set custom functions. 
-	*/ 
 	
-	/*
-	   This builds the map of cell definitions and summarizes the setup. 
-	*/
+	  // Put any modifications to individual cell definitions here. 
+	   
+	   //This is a good place to set custom functions. 
+	 
+	
+	
+	   //This builds the map of cell definitions and summarizes the setup. 
+	
 		
 	build_cell_definitions_maps(); 
 	display_cell_definitions( std::cout ); 
@@ -123,15 +124,23 @@ void setup_microenvironment( void )
 		std::cout << "Warning: overriding 2D setting to return to 3D" << std::endl;
 		default_microenvironment_options.simulate_2D = false;
 	}
-			
+	
+	std::vector<double> bc_vector_air( 2 ); // 5% o2
+	bc_vector_air[0]=20.0;
+	bc_vector_air[1]=0.0;
+
+	
 	initialize_microenvironment(); 	
 	for( int n = 0; n < microenvironment.mesh.voxels.size() ; n++ )
 	{
 		
 		microenvironment(n)[1] = 0.0;
 		microenvironment(n)[2] = 0.0;
-		std::vector<double> position = microenvironment.mesh.voxels[n].center; 
-		 if(   position[1] >- 220  )
+		
+		
+		
+	    std::vector<double> position = microenvironment.mesh.voxels[n].center; 
+		 if(   position[1] > -220  )
 		{	
 		microenvironment.add_dirichlet_node( n,bc_vector_air  );
 							
@@ -362,6 +371,11 @@ void metabolic_cell_phenotype( Cell* pCell, Phenotype& phenotype, double dt )
 	return;
 }
 
+
+
+
+
+
 std::vector<std::string> my_coloring_function( Cell* pCell )
 {
 	// start with flow cytometry coloring
@@ -378,4 +392,146 @@ std::vector<std::string> my_coloring_function( Cell* pCell )
 	}
 
 	return output;
+}
+
+
+
+
+void update_Dirichlet_Nodes(void) 
+
+{
+	
+	
+	
+	#pragma omp parallel for
+	for(int n=0; n < all_cells->size(); n++)
+{
+			    PhysiCell::Cell* pCell = (*all_cells)[n];
+				if (pCell->type==1)
+				{
+					
+					int my_voxel=pCell->get_current_voxel_index();
+					microenvironment.remove_dirichlet_node(my_voxel);
+					
+					
+				}
+
+			  }
+	
+	
+	
+	/* for( int n = 0; n < microenvironment.mesh.voxels.size() ; n++ )
+	{
+		
+		
+		if(  microenvironment.nearest_density_vector( n ) [1] > 1 )
+		{	
+		
+		
+		microenvironment.remove_dirichlet_node(n);
+		
+			
+		}
+
+		
+	} */
+	
+	
+} 
+
+
+ void make_adjustments(void)
+
+
+{
+	
+	double dnodes=0;
+	double leaked_glucose=0.0;
+	for( int n = 0; n < microenvironment.mesh.voxels.size() ; n++ )
+	{
+		if(microenvironment.is_dirichlet_node(n))
+		{ 
+		dnodes++;
+		
+			double  glucose_density =microenvironment.nearest_density_vector(n)[2];//[0];
+			//std::cout<< glucose_density;
+			if(microenvironment.nearest_density_vector(n)[2]>0.0)
+			{
+			
+			std::vector<double> position = microenvironment.mesh.voxels[n].center;
+			//std::cout<< microenvironment.mesh.voxels[n].center;
+			double offset=20;
+			
+			std::vector<std::vector<double>> neighbor_voxels(4);
+			neighbor_voxels[0]={position[0]+offset,position[1],position[2]};
+			neighbor_voxels[1]={position[0],position[1]+offset,position[2]};
+			neighbor_voxels[2]={position[0]-offset,position[1],position[2]};
+			neighbor_voxels[3]={position[0],position[1]-offset,position[2]};
+			
+			double non_air=0.0;
+			bool check_it[4]={0,0,0,0};
+			for (int m=0;m<4;++m)
+				
+				{ 
+					
+					if(fabs(neighbor_voxels[m][0])>240||fabs( neighbor_voxels[m][1])>240)
+					{	check_it[m]=0;}
+					else 
+						
+					{ 
+						if (!(microenvironment.is_dirichlet_node(microenvironment.nearest_voxel_index(neighbor_voxels[m]))))
+					{
+						non_air+=1.0;
+						check_it[m]=1;
+					}
+				
+					}
+							
+				}
+			
+			for(int j=0;j<4;j++)
+	
+			{
+				if(check_it[j]==1)
+				{
+				microenvironment(microenvironment.nearest_voxel_index(neighbor_voxels[j]))[2] += (glucose_density/non_air);
+				microenvironment(n)[2]-=(glucose_density/non_air);
+					//std::cout<<glucose_density/non_air;
+					//std::cout<<non_air;
+				}
+			//std::cout<<non_air;		
+			}
+			
+			if (non_air==0)
+			{
+					
+				leaked_glucose+=microenvironment.nearest_density_vector(n)[2];
+				microenvironment.nearest_density_vector(n)[2]=0;
+				
+			}
+		
+		  
+		//microenvironment(n)[2]=0;
+		}// if glucose found
+
+			
+			
+		}// end if is_dirichlet_node
+		
+		
+}// end of for
+	double total=microenvironment.mesh.voxels.size();
+
+	for( int i = 0; i < microenvironment.mesh.voxels.size() ; i++ )
+	{
+		
+		if (!(microenvironment.is_dirichlet_node(i)))
+		{
+			
+			microenvironment.nearest_density_vector(i)[2]+=(leaked_glucose/(total-dnodes));
+			
+		}
+	
+	}
+	
 }
